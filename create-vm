@@ -1,0 +1,20 @@
+#!/bin/bash
+
+START_TIME=$SECONDS
+
+DIST=zesty          \
+ARCH=64             \
+GUI=yes             \
+VNX=yes             \
+HNAME=vnx-vm        \
+NEWUSER=vnx         \
+NEWPASSWD=xxxx      \
+VMLANG=es           \
+MEM=2048            \
+VCPUS=4             \
+vagrant up
+
+ELAPSED_TIME=$(($SECONDS - $START_TIME))
+echo "--"
+echo "-- Virtual machine created in $ELAPSED_TIME seconds"
+echo "--"
