@@ -1,0 +1,503 @@
+#!/bin/bash
+
+#
+# Create updated Ubuntu base boxes and optionally install basic packages needed by Lubuntu GUI or VNX
+# 
+# Author: David Fernández (david@dit.upm.es)
+#
+# This file is part of the Virtual Networks over LinuX (VNX) Project distribution. 
+# (www: http://www.dit.upm.es/vnx - e-mail: vnx@dit.upm.es) 
+# 
+# Departamento de Ingenieria de Sistemas Telematicos (DIT)
+# Universidad Politecnica de Madrid
+# SPAIN
+#
+
+#
+# Default values
+# Can be changed through command line args
+GUI=no                # -g full|core|no
+ARCH=32               # -a 64|32
+DIST=wily             # -d precise|trusty|vivid|wily|xenial|zesty
+VNX=no                # -v yes|no
+DOWNLOAD='yes'	      # -n
+
+USAGE="
+create-ubuntu-box [-g full/core/no] [-a arch] [-d distrib] [-v yes|no] [-y]
+
+    -g -> whether the GUI is installed (full/core/no, default $GUI)
+    -a -> architecture (32/64, default $ARCH)
+    -d -> ubuntu distribution (precise, trusty, vivid, wily, xenial, zesty, default $DIST)
+    -v -> whether VNX package dependencies are installed (yes/no, default $VNX)
+    -y -> do not ask for confirmation before executing 'vagrant destroy' command
+    -n -> do not download the base image
+    -f -> install and use apt-fast to accelerate package download
+"
+
+
+while getopts ":g:a:d:v:hnf" opt; do
+    case "$opt" in
+        g)
+            GUI="$OPTARG"
+            if [[ "$OPTARG" == 'full' ]]; then
+                GUIID="-lubuntu"
+            elif [[ "$OPTARG" == 'core' ]]; then
+                GUIID="-lubuntucore"
+            elif [[ "$OPTARG" == 'no' ]]; then
+                GUIID=""
+            else
+                echo "--"
+                echo "ERROR: -g option should be 'full', 'core' or 'no'"
+                echo "--"
+                exit 1
+            fi ;;
+        v)
+            VNX="$OPTARG"
+            if [[ "$OPTARG" == 'yes' ]]; then
+              VNXID="-vnx"
+            elif [[ "$OPTARG" == 'no' ]]; then
+              VNXID=""
+            else
+                echo "--"
+                echo "ERROR: -v option should be 'yes' or 'no'"
+                echo "--"
+                exit 1
+            fi 
+            ;;
+        a)
+            if [[ "$OPTARG" == '32' ]]; then
+                ARCH="32"
+                ARCHID="i386"
+            elif [[ "$OPTARG" == '64' ]]; then
+                ARCH="64"
+                ARCHID="amd64"
+            else
+                echo "--"
+                echo "ERROR: -a option should be '32' or '64'"
+                echo "--"
+                exit 1
+            fi  
+            ;;
+        d)
+            DIST="$OPTARG" ;;
+        y)
+            YES='yes' ;;
+        n)
+            DOWNLOAD='no' ;;
+        f)
+            APT_FAST='yes' ;;
+        h)
+            echo "$USAGE" 
+            exit 0 ;;
+        *)
+            echo "ERROR: unknown option '-$OPTARG'"
+            exit 1;;
+    esac
+done
+
+
+START_TIME=$SECONDS
+
+#
+# Original image
+#
+# Base image to download and URL to download the base image from 
+
+
+# Vagrant box name (e.g.: wily32)
+#BOXNAME="$DIST$ARCH"
+
+if [[ "$ARCH" == '32' ]]; then
+  BOXNAMEEXT='-i386'
+else
+  BOXNAMEEXT=''
+fi
+
+if [[ "$DIST" == 'zesty' ]]; then
+  BOXVERSION='ubuntu-17.04'
+elif [[ "$DIST" == 'xenial' ]]; then
+  BOXVERSION='ubuntu-16.04'
+elif [[ "$DIST" == 'willy' ]]; then
+  BOXVERSION='ubuntu-15.10'
+elif [[ "$DIST" == 'trusty' ]]; then
+  BOXVERSION='ubuntu-14.04'
+elif [[ "$DIST" == 'precise' ]]; then
+  BOXVERSION='ubuntu-12.04'
+else
+  echo "--"
+  echo "ERROR: distribution $DIST not supported."
+  echo "--"
+  exit 1
+fi
+
+BOXNAME="bento/$BOXVERSION$BOXNAMEEXT"
+
+
+#
+# Modified image
+#
+# Base file name of the new vagrant box created (a date is added at the end when created)
+NEWBOXBASEFILENAME="$DIST$GUIID$VNXID-cloudimg-$ARCHID-vagrant-disk1"
+
+# Vagrant internal name of the new box created
+NEWBOXNAME="$DIST$ARCH$GUIID$VNXID-updated"
+
+# Repository to download updated packages from
+PACKAGESSOURCE="es"
+
+echo "--"
+echo "DIST=$DIST, ARCH=$ARCH, GUI=$GUI, VNX=$VNX"
+echo "BASEBOXURL=$BASEBOXURL, BOXNAME=$BOXNAME"
+echo "NEWBOXBASEFILENAME=$NEWBOXBASEFILENAME, NEWBOXNAME=$NEWBOXNAME"
+echo "--"
+
+echo "-- Deleting previous VMs if existant:"
+echo "--   Command: vagrant destroy --force"
+vagrant destroy --force
+rm -rf .vagrant
+
+# Downloading base box image
+if [[ "$DOWNLOAD" == 'yes' ]]; then
+	echo "--"
+	echo "-- Downloading updated base box image:"
+	echo "--   Command: vagrant box add --force $BOXNAME --provider virtualbox"
+	vagrant box add --force $BOXNAME --provider virtualbox
+else
+	# check if box is already available
+    vagrant box list | grep "^$BOXNAME\s"
+    if [ $? -ne 0 ]; then
+        echo "--"
+        echo "ERROR: base image $BOXNAME does not exist on the system and -n option (do not download) was selected."
+        echo "--"
+        exit 1
+    fi 
+fi
+
+# Create Vagrantfile
+echo "--"
+echo "-- Creating Vagrantfile..."
+cat > Vagrantfile <<EOF
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
+VAGRANTFILE_API_VERSION = "2"
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  config.vm.box = "$BOXNAME"
+  config.vm.box_url = "$BASEBOXURL"
+
+  # To avoid the "input device is not a TTY" error message during provision
+  # See https://github.com/Varying-Vagrant-Vagrants/VVV/issues/517
+  #config.vm.provision "fix-no-tty", type: "shell" do |s|
+  #  s.privileged = false
+  #  s.inline = "sudo sed -i '/tty/!s/mesg n/tty -s \\\\&\\\\& mesg n/' /root/.profile"
+  #end
+
+  config.vm.provision :shell, :path => "bootstrap.sh"
+
+  # Disable the automatic update of VBoxGuestAdditions if vagrant-vbguest plugin is installed
+  # It seems to fail in Ubuntu 16.04 as tested on 26/7/2016
+  # Instead, VBoxGuestAdditions are installed by bootstrap.sh script
+#  if Vagrant.has_plugin?("vagrant-vbguest")
+#      config.vbguest.auto_update = false
+#  end
+  #config.ssh.insert_key = false
+
+end
+EOF
+
+APT_OPTIONS='-o Dpkg::Options::="--force-confold"'
+
+if [[ "$APT_FAST" == 'yes' ]]; then
+INSTALL_APT_FAST="
+apt-get update
+apt-get install -y software-properties-common
+add-apt-repository -y ppa:saiarcot895/myppa
+apt-get update
+apt-get install -y apt-fast
+sed -i -e 's/^DOWNLOADBEFORE=.*/DOWNLOADBEFORE=true/' /etc/apt-fast.conf 
+"
+APT_CMD="apt-fast $APT_OPTIONS"
+else
+INSTALL_APT_FAST=""
+APT_CMD="apt-get $APT_OPTIONS"
+fi
+
+# If ubuntu distribution is Xenial (16.04), configure classical network interface naming (eth0, eth1, etc)
+#if [ \$(lsb_release -sr) == "16.04" ]; then
+#XENIAL_IF_NAMING_CMDS="
+## Change configuration to use classical network interface naming
+#sed -i -e '/^GRUB_CMDLINE_LINUX=/d' /etc/default/grub
+#sed -i -e \"/^GRUB_CMDLINE_LINUX/a GRUB_CMDLINE_LINUX='net.ifnames=0 biosdevname=0'\" /etc/default/grub
+#update-grub
+#"
+#else
+XENIAL_IF_NAMING_CMDS=''
+#fi
+
+# Create bootstrap.sh file
+# Note: Do not forget to escape the $ and \ chars !!
+echo "--"
+echo "-- Creating bootstrap.sh file..."
+cat > bootstrap.sh <<EOF
+#!/usr/bin/env bash
+
+#
+# Update and installation script for Vagrant VMs
+# 
+# Author: David Fernández (david@dit.upm.es)
+#
+# This file is part of the Virtual Networks over LinuX (VNX) Project distribution. 
+# (www: http://www.dit.upm.es/vnx - e-mail: vnx@dit.upm.es) 
+# 
+# Departamento de Ingenieria de Sistemas Telematicos (DIT)
+# Universidad Politecnica de Madrid
+# SPAIN
+#
+
+#echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+
+$XENIAL_IF_NAMING_CMDS
+
+# Delete the 'quiet' parameter in kernel parameters 
+sed -i -e '/^GRUB_CMDLINE_LINUX_DEFAULT=/d' /etc/default/grub
+sed -i -e '/^GRUB_CMDLINE_LINUX/a GRUB_CMDLINE_LINUX=""' /etc/default/grub
+update-grub
+
+#if [ \$( lsb_release -sr ) == "16.04" ]; then
+#
+#	echo "--"
+#	echo "-- Disabling console traces on tty1 and ttyS0"
+#	echo "--"
+#	sed -i -e "s/^GRUB_CMDLINE_LINUX_DEFAULT=/#GRUB_CMDLINE_LINUX_DEFAULT=/g" /etc/default/grub.d/50-cloudimg-settings.cfg
+#	sed -i -e 's/console=tty1//g' /etc/default/grub
+#	sed -i -e 's/console=ttyS0//g' /etc/default/grub
+#	update-grub
+#
+#fi
+
+if [ -f /lib/systemd/system/networking.service ]; then
+	echo "--"
+	echo "-- Reducing network interface autoconfiguration timeout to 30 secs..."
+	echo "--"
+    sed -i -e 's/TimeoutStartSec=5min/TimeoutStartSec=30sec/' /lib/systemd/system/networking.service 
+fi
+
+
+
+echo "--"
+echo "-- Setting packages sources to ${PACKAGESSOURCE}.archive.com package list:"
+echo "--"
+#sed -i -e 's/\/archive\.ubuntu/\/${PACKAGESSOURCE}\.archive\.ubuntu/g' /etc/apt/sources.list
+sed -i -e 's#//.*archive\.ubuntu#//${PACKAGESSOURCE}.archive.ubuntu#g' /etc/apt/sources.list
+
+echo "--"
+echo "-- Updating package list:"
+echo "--"
+export DEBIAN_FRONTEND=noninteractive
+
+$INSTALL_APT_FAST
+
+$APT_CMD update
+
+echo "--"
+echo "-- Upgrading packages:"
+echo "--"
+$APT_CMD -y dist-upgrade
+
+#echo ""
+#echo "Uninstalling lxd..."
+#echo ""
+#$APT_CMD -y remove lxd
+
+echo '--'
+echo '-- Installing additional useful packages:'
+echo '--'
+$APT_CMD -y install aptsh curl
+
+echo ""
+echo "Installing VBoxGuestAdditions..."
+echo ""
+echo "Installing packages required:"
+echo ""
+uname -a
+uname -r
+KERNELVER=\$(uname -r)
+echo $APT_CMD -y install linux-headers-\$KERNELVER build-essential dkms
+$APT_CMD -y install linux-headers-\$KERNELVER build-essential dkms
+VER=\$( curl -s http://download.virtualbox.org/virtualbox/LATEST.TXT )
+echo ""
+echo "Getting latest version of VBoxGuestAdditions for Linux: \$VER"
+echo ""
+wget -nv http://download.virtualbox.org/virtualbox/\$VER/VBoxGuestAdditions_\$VER.iso
+mkdir /media/VBoxGuestAdditions
+mount -o loop,ro VBoxGuestAdditions_\$VER.iso /media/VBoxGuestAdditions
+sh /media/VBoxGuestAdditions/VBoxLinuxAdditions.run
+
+rm VBoxGuestAdditions_\$VER.iso
+umount /media/VBoxGuestAdditions
+rmdir /media/VBoxGuestAdditions
+
+# Install virtualbox-guest-utils to avoid "mount: wrong fs type, bad option, bad superblock on vagrant" error
+echo "--"
+echo "-- apt-get -y --no-install-recommends install virtualbox-guest-utils"
+echo "--"
+apt-get -y --no-install-recommends install virtualbox-guest-utils
+echo "--------------------------------------------------------------------------------------------------------"
+
+EOF
+
+# Add GUI package installation if requested
+if [[ "$GUI" == 'full' ]]; then
+  echo "" >> bootstrap.sh
+  echo "echo '--'" >> bootstrap.sh
+  echo "echo '-- Installing lubuntu full desktop:'" >> bootstrap.sh
+  echo "echo '--'" >> bootstrap.sh
+  echo "$APT_CMD -y --no-install-recommends install lubuntu-desktop" >> bootstrap.sh
+elif [[ "$GUI" == 'core' ]]; then
+  echo "" >> bootstrap.sh
+  echo "echo '--'" >> bootstrap.sh
+  echo "echo '-- Installing lubuntu core desktop:'" >> bootstrap.sh
+  echo "echo '--'" >> bootstrap.sh
+  echo "$APT_CMD -y --no-install-recommends install lubuntu-core" >> bootstrap.sh
+fi
+
+# Add VNX package dependencies installation if requested
+if [[ "$VNX" == 'yes' ]]; then
+
+cat >> bootstrap.sh <<EOF
+
+echo '--'
+echo '-- Installing VNX package dependencies:'
+echo '--'
+$APT_CMD -y install linux-headers-generic build-essential dkms
+$APT_CMD -y install qemu-kvm libvirt-bin vlan xterm bridge-utils screen virt-manager \
+  virt-viewer uml-utilities graphviz genisoimage gnome-terminal tree \
+  curl w3m picocom expect lxc wmctrl xdotool pv bash-completion \
+  libnetaddr-ip-perl libxml-libxml-perl libxml-tidy-perl libappconfig-perl \
+  libreadonly-perl libterm-readline-perl-perl libnet-pcap-perl libnet-ipv6addr-perl \
+  libsys-virt-perl libnet-telnet-perl liberror-perl libexception-class-perl \
+  libxml-dom-perl libdbi-perl libmath-round-perl libio-pty-perl libnet-ip-perl \
+  libxml-checker-perl libxml-parser-perl libfile-homedir-perl libswitch-perl openvswitch-switch \
+  linux-image-extra-virtual xfce4-terminal
+EOF
+
+fi
+
+# Add final part of bootstrap.sh
+cat >> bootstrap.sh <<EOF
+
+#echo "--"
+#echo " -- Set /etc/hosts second line to '127.0.1.1 \$HOSTNAME'"
+#echo "--"
+#cat /etc/hosts
+#sed -i -e "/^127\.0\.1\.1/d" /etc/hosts
+##MYHOST=\$( hostname ); sed -i -e "/127.0.0.1.*localhost/a 127.0.1.1 \$MYHOST" /etc/hosts
+#sed -i -e "/127.0.0.1.*localhost/a 127.0.1.1 \$HOSTNAME" /etc/hosts
+#echo "--"
+#cat /etc/hosts
+
+echo '--'
+echo '-- Adding vagrant insecure public key to allow "vagrant ssh command without password::'
+echo '--'
+
+wget -nv https://raw.githubusercontent.com/mitchellh/vagrant/master/keys/vagrant.pub -O /tmp/vagrant.pub
+cat /tmp/vagrant.pub
+
+mkdir -p /home/vagrant/.ssh
+cd /home/vagrant/.ssh
+cat /tmp/vagrant.pub > authorized_keys 
+chown -R vagrant.vagrant /home/vagrant/.ssh
+
+rm /tmp/vagrant.pub
+
+# Test to see if the "default: stdin: is not a tty" message dissapears
+#sed -i -e 's/.*mesg n.*//' /root/.profile
+
+echo "--"
+echo "-- Cleaning caches:"
+echo "--"
+$APT_CMD -y autoremove
+$APT_CMD clean
+history -c
+
+halt -p
+#reboot
+echo "----"
+EOF
+
+# bootstrap2.sh just to halt after reboot
+#cat >> bootstrap2.sh <<EOF
+#echo "--"
+#echo "-- Halting:"
+#halt -p
+#EOF
+
+
+# Create VM 
+echo "--"
+echo "-- Starting and provisioning VM..."
+echo "--   Command: vagrant up --provision"
+vagrant up --provision
+if [ $? -eq 0 ]; then
+  echo "-- ...VM successfully provisioned."
+else
+  echo "-- ...Error provisioning VM."
+  exit 1
+fi
+
+
+VMID=$( cat .vagrant/machines/default/virtualbox/id )
+
+# Wait till VM stops
+while [[ $( VBoxManage list runningvms | grep $VMID ) ]]; do sleep 1; done
+
+# If Ubuntu 16.04 (Xenial) disable COM1 port
+if [[ "$DIST" == 'xenial' ]]; then
+    echo "--"
+    echo "-- Disabling serial console..."
+    echo "--   Command: vboxmanage modifyvm $VMID --uart1 off"
+	vboxmanage modifyvm $VMID --uart1 off
+fi
+
+# Package the updated VM
+DATE=`date +%F_%R | tr ":" "-"`
+NEWBOXFILENAME=${NEWBOXBASEFILENAME}-${DATE}.box
+# Delete private key created to force using the vagrant insecure key
+#ls -al .vagrant/machines/default/virtualbox/private_key
+#cat .vagrant/machines/default/virtualbox/private_key
+rm -f .vagrant/machines/default/virtualbox/private_key
+#read -p "Press [Enter] key to continue"
+
+echo "--"
+echo "-- Packaging new box:"
+echo "--   Command: vagrant package --output ${NEWBOXFILENAME}"
+vagrant package --output ${NEWBOXFILENAME}
+
+# Copy the new box to idefix repository
+rm -vf /var/www/download/vagrant/${NEWBOXFILENAME}
+cp ${NEWBOXFILENAME} /var/www/download/vagrant
+chmod +r /var/www/download/vagrant/${NEWBOXFILENAME}
+# Create 'latest' link
+rm -vf /var/www/download/vagrant/${NEWBOXBASEFILENAME}-latest.box
+ln -s /var/www/download/vagrant/${NEWBOXFILENAME} /var/www/download/vagrant/${NEWBOXBASEFILENAME}-latest.box
+
+echo "--"
+echo "-- Adding new box to system:"
+echo "--   Command: vagrant box add --force ${NEWBOXNAME} ${NEWBOXBASEFILENAME}-latest.box"
+vagrant box add --force ${NEWBOXNAME} ${NEWBOXFILENAME}
+
+echo "-- Deleting VM and auxiliar files:"
+echo "--   Command: vagrant destroy --force"
+vagrant destroy --force
+rm -v Vagrantfile bootstrap.sh ${NEWBOXFILENAME}
+
+echo "--"
+echo "-- New virtual machine (${NEWBOXNAME}/${NEWBOXFILENAME}) created"
+echo "-- To test it execute:"
+echo "--     vagrant init ${NEWBOXNAME}"
+echo "--     vagrant up"
+echo "--     vagrant ssh"
+

@@ -1,0 +1,38 @@
+#!/bin/bash
+
+vm_name=$1
+
+USAGE="prepare-ova <VM_name>
+"
+
+if [ $# -ne 1 ]; then
+  echo " "
+  echo "ERROR: illegal number of parameters"
+  echo " "
+  echo "$USAGE"
+  exit 1
+fi
+
+
+# Change VM name
+vboxmanage modifyvm `cat .vagrant/machines/default/virtualbox/id` --name $vm_name
+
+# Delete vagrant shared dir
+vboxmanage sharedfolder remove `cat .vagrant/machines/default/virtualbox/id` --name "install"
+
+# Activate shared clipboard
+vboxmanage modifyvm `cat .vagrant/machines/default/virtualbox/id` --clipboard bidirectional
+
+# Change main memory
+vboxmanage modifyvm $vm_name --memory 1536
+
+# Increase video memory
+vboxmanage modifyvm $vm_name --vram 128
+
+# Activate USB
+vboxmanage modifyvm `cat .vagrant/machines/default/virtualbox/id` --usb on
+
+# Convert to OVA format
+vboxmanage export $vm_name -o ${vm_name}.ova
+
+chmod +r ${vm_name}.ova
