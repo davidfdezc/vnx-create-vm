@@ -61,7 +61,7 @@ the first step.
 
 - Create the base image. For example:
 
-  ./create-ubuntu-box-bento -g full -a 64 -d zesty -v yes -f
+  ./create-bento-ubuntu-box -g full -a 64 -d zesty -v yes -f
 
 - Create VM with:
 
