@@ -61,7 +61,10 @@ the first step.
 
 - Create the base image. For example:
 
+  cd base-vm
   ./create-bento-ubuntu-box -g full -a 64 -d zesty -v yes -f
+  vagrant destroy
+  cd ..
 
 - Create VM with:
 
@@ -69,7 +72,7 @@ the first step.
 
 - Once the VM is created and started, open a shell and execute: 
 
-    /usr/local/bin/config_desktop. 
+    /usr/local/bin/config_desktop 
 
   The login session will be automatically terminated. Login again to see the new desktop settings.
 
