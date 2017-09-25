@@ -101,11 +101,12 @@ config_desktop tasks:
   Deactivate also Lock screen when system is going for sleep
 
 clean_and_halt tasks:
+---------------------
 
-sudo deluser vagrant
-sudo apt-get autoremove
-sudo apt-get clean
-sudo history -c
-history -c
-sudo halt -p
+- sudo deluser vagrant
+- sudo apt-get autoremove
+- sudo apt-get clean
+- sudo history -c
+- history -c
+- sudo halt -p
 
