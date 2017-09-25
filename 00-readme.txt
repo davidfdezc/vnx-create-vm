@@ -1,6 +1,8 @@
 VNX lab virtual machine creation scripts
 ----------------------------------------
 
+Author: David Fernández (david at dit.upm.es)
+
 1 - Introduction
 
 These scripts are aimed to create Ubuntu based virtual machines with VNX installed to be used for 
