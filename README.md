@@ -88,7 +88,7 @@ the first step.
 
   For example:
 
-    ./prepare-ova RDOR2017-v1
+    ./prepare-ova VNX2017-v1
 
 
 config_desktop tasks:
