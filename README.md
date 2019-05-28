@@ -56,7 +56,7 @@ package) to the first step, makes the second one much faster.
 
     For example:
 
-      # cat VNXLAB.conf 
+      $ cat VNXLAB.conf 
       DIST=bionic
       ARCH=64
       GUI=lubuntu
