@@ -29,7 +29,7 @@ Vagrant.configure("2") do |config|
   #   - zesty-lubuntu-vnx-cloudimg-amd64-vagrant-disk1-latest.box -> /var/www/download/vag
 
   case ENV['DIST']
-  when "trusty", "vivid", "wily", "xenial", "zesty"
+  when "trusty", "vivid", "wily", "xenial", "zesty", "artful", "bionic"
     bootstrap_args = bootstrap_args + " -d " + ENV['DIST']
     dist = ENV['DIST']
 
@@ -39,10 +39,10 @@ Vagrant.configure("2") do |config|
   end
 
   case ENV['GUI']
-  when "yes"
-    bootstrap_args = bootstrap_args + " -g yes"
-    url_box_tag = "lubuntu-"
-    url_version_tag = "lubuntu-"
+  when "gnome", "lubuntu", "lubuntucore"
+    bootstrap_args = bootstrap_args + " -g " + ENV['GUI']
+    url_box_tag = ENV['GUI'] + "-"
+    url_version_tag = ENV['GUI'] + "-"
   else 
     bootstrap_args = bootstrap_args + " -g no"
     url_box_tag = ""

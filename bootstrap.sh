@@ -28,7 +28,7 @@ fi
 #
 # Default values
 # Can be changed adding command line args
-GUI=no		            # -g yes|no
+GUI=no		            # -g gnome|lubuntu|lubuntucore|no
 HNAME=vnx               # -n hostname
 NEWUSER=rdor            # -u username
 PASSWD='xxxx'           # -p password
@@ -167,88 +167,102 @@ echo "$NEWUSER ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$NEWUSER
 #
 # Installing GUI if requested
 #
-if [ "$GUI" == "yes" ]; then 
+echo "-- GUI: $GUI"
+if [ "$GUI" == "gnome" -o "$GUI" == "lubuntu" -o "$GUI" == "lubuntucore" ]; then 
 
   echo "--"
-  echo "-- Installing GUI :"
+  echo "-- Installing GUI: $GUI"
   echo "--"
   #$APT_CMD -y install --no-install-recommends lubuntu-desktop
-  $APT_CMD -y install lubuntu-desktop
-  $APT_CMD -y remove network-manager
-  # Reconfigure keyboard
-  #echo "setxkbmap ${LANG:0:2}" >> /etc/profile
+  if [ "$GUI" == "gnome" ]; then 
 
-  # Config keyboard
-  #mkdir -p /home/$NEWUSER/.config/lxpanel/Lubuntu/panels/
-  #USERPANELCONFIG=/home/$NEWUSER/.config/lxpanel/Lubuntu/panels/panel
-  #sed -i -e 's/KeepSyshhLayouts=.*/KeepSysLayouts=0/' $USERPANELCONFIG
-  #sed -i -e 's/LayoutsList=.*/LayoutsList=es/' $USERPANELCONFIG
+    #
+    # GUI configuration for GNOME
+    #
+    $APT_CMD -y --no-install-recommends install ubuntu-desktop
+    # Set autologin to the new created account
+    sed -i -e 's/.*AutomaticLoginEnable =.*/AutomaticLoginEnable = true/' -e "s/.*AutomaticLogin =.*/AutomaticLogin = $NEWUSER/" /etc/gdm3/custom.conf
 
-  # Disable screensaver
-#  mkdir -p /home/$NEWUSER/.config/autostart/
-#  cat >> /home/$NEWUSER/.config/autostart/screensaver-settings.desktop <<EOF
-#[Desktop Entry]
-#Name=Salvapantallas
-#Comment=Configurar los tiempos de espera del salvapantallas
-#Exec=xset s 0 dpms 0 0 0 -dpms
-#EOF
-#  cat /home/$NEWUSER/.config/autostart/screensaver-settings.desktop 
-  chown -R $NEWUSER.$NEWUSER /home/$NEWUSER/
-  # xset -dpms;xset s noblank in my .xinitrc
 
-  # Set wallpaper
-  WALLPAPER=vnx-dit-upm-fondo-1024.png
-  WALLPAPERDIR=/usr/share/lubuntu/wallpapers/
-  cd $WALLPAPERDIR
-  wget http://idefix.dit.upm.es/vnx/logos/$WALLPAPER
-  #mv $WALLPAPER lubuntu-default-wallpaper.png
-  #mkdir -p /home/$NEWUSER/.config/pcmanfm/lubuntu/
-  #sed -i -e 's/wallpaper=.*/wallpaper=/usr/share/lubuntu/wallpapers/vnx-fondo-1200.png/' /home/$NEWUSER/.config/pcmanfm/lubuntu/desktop-items-0.conf
+  elif [ "$GUI" == "lubuntu" -o "$GUI" == "lubuntucore" ]; then 
 
-  # Create script to config some desktop issues
-  CFGDESK=/usr/local/bin/config_desktop
-  CFGDESKFILE=/home/$NEWUSER/.config/pcmanfm/lubuntu/desktop-items-0.conf
-  CFGLIBFMFILE=/home/$NEWUSER/.config/libfm/libfm.conf
+    #
+    # GUI configuration for LXDE (lubuntu)
+    #
+    if [ "$GUI" == "lubuntu" ]; then 
+      $APT_CMD -y --no-install-recommends install lubuntu-desktop
+    elif [ "$GUI" == "lubuntucore" ]; then 
+      $APT_CMD -y --no-install-recommends install lubuntu-core
+    fi
+    $APT_CMD -y remove network-manager
 
-  CFGSTORE=/home/$NEWUSER/tmp
-  mkdir -p /home/$NEWUSER/tmp
-  cp -a $INSTALLDIR/config/ $CFGSTORE
+    # Disable screensaver
+    #  mkdir -p /home/$NEWUSER/.config/autostart/
+    #  cat >> /home/$NEWUSER/.config/autostart/screensaver-settings.desktop <<EOF
+    #[Desktop Entry]
+    #Name=Salvapantallas
+    #Comment=Configurar los tiempos de espera del salvapantallas
+    #Exec=xset s 0 dpms 0 0 0 -dpms
+    #EOF
+    #  cat /home/$NEWUSER/.config/autostart/screensaver-settings.desktop 
+    chown -R $NEWUSER.$NEWUSER /home/$NEWUSER/
+    # xset -dpms;xset s noblank in my .xinitrc
 
-  echo "#!/bin/bash" > $CFGDESK
-  echo "pcmanfm &" >> $CFGDESK
-  #echo "PID=\$( echo \$! )" >> $CFGDESK
-  echo "sleep 2" >> $CFGDESK
-  echo "sed -i -e 's#wallpaper=.*#wallpaper=$WALLPAPERDIR/$WALLPAPER#' $CFGDESKFILE" >> $CFGDESK
-  echo "sed -i -e 's#wallpaper_mode=.*#wallpaper_mode=center#' $CFGDESKFILE" >> $CFGDESK
-  echo "sed -i -e 's/desktop_bg=.*/desktop_bg=#d9eafa/' $CFGDESKFILE" >> $CFGDESK
-  # Config execution by double click
-  echo "sed -i -e 's/quick_exec=.*/quick_exec=1/' $CFGLIBFMFILE" >> $CFGDESK
-  # Copy desktop panel configuration
-  echo "mkdir -p /home/$NEWUSER/.config/lxpanel/Lubuntu/panels/" >> $CFGDESK
-  echo "cp $CFGSTORE/config/panel /home/$NEWUSER/.config/lxpanel/Lubuntu/panels/" >> $CFGDESK
-  # Copy xfce4-terminal configuration
-  echo "cp -a $CFGSTORE/config/terminal /home/$NEWUSER/.config/xfce4/" >> $CFGDESK
-  # Disable screen locking
-  echo "gsettings set apps.light-locker lock-after-screensaver 0" >> $CFGDESK
-  echo "gsettings set apps.light-locker lock-on-suspend false" >> $CFGDESK
-  echo "LOS=\$( gsettings get apps.light-locker lock-on-suspend )" >> $CFGDESK
-  echo "while [ \$LOS == 'false' ]; do" >> $CFGDESK
-  echo "  gsettings set apps.light-locker lock-on-suspend true" >> $CFGDESK
-  echo "  sleep 1" >> $CFGDESK
-  echo "  LOS=\$( gsettings get apps.light-locker lock-on-suspend )" >> $CFGDESK
-  echo "done" >> $CFGDESK
-  echo "yad --text '\n\n\n    Present login session will be finished.    \n\n    Login again to load new settings.    ' --no-buttons --center &">> $CFGDESK
-  echo "sleep 5" >> $CFGDESK
-  echo "pkill -SIGTERM -f lxsession" >> $CFGDESK
+    # Set wallpaper
+    WALLPAPER=vnx-dit-upm-fondo-1024.png
+    WALLPAPERDIR=/usr/share/lubuntu/wallpapers/
+    cd $WALLPAPERDIR
+    wget http://idefix.dit.upm.es/vnx/logos/$WALLPAPER
+    #mv $WALLPAPER lubuntu-default-wallpaper.png
+    #mkdir -p /home/$NEWUSER/.config/pcmanfm/lubuntu/
+    #sed -i -e 's/wallpaper=.*/wallpaper=/usr/share/lubuntu/wallpapers/vnx-fondo-1200.png/' /home/$NEWUSER/.config/pcmanfm/lubuntu/desktop-items-0.conf
 
-  #echo "kill \$PID" >> $CFGDESK
+    # Create script to config some desktop issues
+    CFGDESK=/usr/local/bin/config_desktop
+    CFGDESKFILE=/home/$NEWUSER/.config/pcmanfm/lubuntu/desktop-items-0.conf
+    CFGLIBFMFILE=/home/$NEWUSER/.config/libfm/libfm.conf
 
-  chmod +x $CFGDESK
+    CFGSTORE=/home/$NEWUSER/tmp
+    mkdir -p /home/$NEWUSER/tmp
+    cp -a $INSTALLDIR/config/ $CFGSTORE
 
-  # Set autologin to the new created account
-  mkdir -p /etc/lightdm/lightdm.conf.d/
-  echo "[SeatDefaults]" > /etc/lightdm/lightdm.conf.d/20-lubuntu.conf
-  echo "autologin-user=$NEWUSER" >> /etc/lightdm/lightdm.conf.d/20-lubuntu.conf
+    echo "#!/bin/bash" > $CFGDESK
+    echo "pcmanfm &" >> $CFGDESK
+    #echo "PID=\$( echo \$! )" >> $CFGDESK
+    echo "sleep 2" >> $CFGDESK
+    echo "sed -i -e 's#wallpaper=.*#wallpaper=$WALLPAPERDIR/$WALLPAPER#' $CFGDESKFILE" >> $CFGDESK
+    echo "sed -i -e 's#wallpaper_mode=.*#wallpaper_mode=center#' $CFGDESKFILE" >> $CFGDESK
+    echo "sed -i -e 's/desktop_bg=.*/desktop_bg=#d9eafa/' $CFGDESKFILE" >> $CFGDESK
+    # Config execution by double click
+    echo "sed -i -e 's/quick_exec=.*/quick_exec=1/' $CFGLIBFMFILE" >> $CFGDESK
+    # Copy desktop panel configuration
+    echo "mkdir -p /home/$NEWUSER/.config/lxpanel/Lubuntu/panels/" >> $CFGDESK
+    echo "cp $CFGSTORE/config/panel /home/$NEWUSER/.config/lxpanel/Lubuntu/panels/" >> $CFGDESK
+    # Copy xfce4-terminal configuration
+    echo "cp -a $CFGSTORE/config/terminal /home/$NEWUSER/.config/xfce4/" >> $CFGDESK
+    # Disable screen locking
+    echo "gsettings set apps.light-locker lock-after-screensaver 0" >> $CFGDESK
+    echo "gsettings set apps.light-locker lock-on-suspend false" >> $CFGDESK
+    echo "LOS=\$( gsettings get apps.light-locker lock-on-suspend )" >> $CFGDESK
+    echo "while [ \$LOS == 'false' ]; do" >> $CFGDESK
+    echo "  gsettings set apps.light-locker lock-on-suspend true" >> $CFGDESK
+    echo "  sleep 1" >> $CFGDESK
+    echo "  LOS=\$( gsettings get apps.light-locker lock-on-suspend )" >> $CFGDESK
+    echo "done" >> $CFGDESK
+    echo "yad --text '\n\n\n    Present login session will be finished.    \n\n    Login again to load new settings.    ' --no-buttons --center &">> $CFGDESK
+    echo "sleep 5" >> $CFGDESK
+    echo "pkill -SIGTERM -f lxsession" >> $CFGDESK
+  
+    #echo "kill \$PID" >> $CFGDESK
+  
+    chmod +x $CFGDESK
+  
+    # Set autologin to the new created account
+    mkdir -p /etc/lightdm/lightdm.conf.d/
+    echo "[SeatDefaults]" > /etc/lightdm/lightdm.conf.d/20-lubuntu.conf
+    echo "autologin-user=$NEWUSER" >> /etc/lightdm/lightdm.conf.d/20-lubuntu.conf
+
+  fi
 
   echo ""
   echo "Installing VBoxGuestAdditions..."
@@ -270,10 +284,6 @@ if [ "$GUI" == "yes" ]; then
 
   # Add new user to vboxsf group to allow shared folders
   usermod -a -G vboxsf $NEWUSER
-
-  add-apt-repository -y ppa:webupd8team/sublime-text-3
-  $APT_CMD update
-  $APT_CMD -y install sublime-text-installer
   
   echo ""
   echo "Installing open-vm-tools (for VMware):"
@@ -289,6 +299,8 @@ echo "" >> $CLEANHALT
 echo "sudo deluser vagrant" >> $CLEANHALT
 echo "sudo apt-get autoremove" >> $CLEANHALT
 echo "sudo apt-get clean" >> $CLEANHALT
+echo "sudo dd if=/dev/zero of=/zerofile bs=1M" >> $CLEANHALT
+echo "sudo rm -f /zerofile" >> $CLEANHALT
 echo "sudo history -c" >> $CLEANHALT
 echo "history -c" >> $CLEANHALT
 echo "sudo halt -p" >> $CLEANHALT
@@ -339,6 +351,19 @@ EOF
 echo "$VIMCFG" >> /etc/vim/vimrc
 tail -12 /etc/vim/vimrc
 
+# enable bash completion in interactive shells
+cat << EOF >> /etc/bash.bashrc
+
+# enable bash completion in interactive shells
+if ! shopt -oq posix; then
+  if [ -f /usr/share/bash-completion/bash_completion ]; then
+    . /usr/share/bash-completion/bash_completion
+  elif [ -f /etc/bash_completion ]; then
+    . /etc/bash_completion
+  fi
+fi
+EOF
+
 
 #
 # VNX Instalation
@@ -352,16 +377,17 @@ echo "---- Installing required packages:"
 echo "--"
 
 export DEBIAN_FRONTEND=noninteractive
-$APT_CMD -y install qemu-kvm libvirt-bin vlan xterm bridge-utils screen virt-manager \
-  virt-viewer uml-utilities graphviz genisoimage gnome-terminal tree \
-  curl w3m picocom expect lxc wmctrl xdotool pv bash-completion \
-  libnetaddr-ip-perl libxml-libxml-perl libxml-tidy-perl libappconfig-perl \
-  libreadonly-perl libterm-readline-perl-perl libnet-pcap-perl libnet-ipv6addr-perl \
-  libsys-virt-perl libnet-telnet-perl liberror-perl libexception-class-perl \
-  libxml-dom-perl libdbi-perl libmath-round-perl libio-pty-perl libnet-ip-perl \
-  libxml-checker-perl libxml-parser-perl libfile-homedir-perl libswitch-perl openvswitch-switch \
-  linux-image-extra-virtual xfce4-terminal
-
+$APT_CMD -y install 
+  bash-completion bridge-utils curl eog expect genisoimage gnome-terminal \
+  graphviz libappconfig-perl libdbi-perl liberror-perl libexception-class-perl \
+  libfile-homedir-perl libio-pty-perl libmath-round-perl libnetaddr-ip-perl \
+  libnet-ip-perl libnet-ipv6addr-perl libnet-pcap-perl libnet-telnet-perl \
+  libreadonly-perl libswitch-perl libsys-virt-perl libterm-readline-perl-perl \
+  libvirt-bin libxml-checker-perl libxml-dom-perl libxml-libxml-perl \
+  libxml-parser-perl libxml-tidy-perl lxc lxc-templates net-tools \
+  openvswitch-switch picocom pv qemu-kvm screen tree uml-utilities virt-manager \
+  virt-viewer vlan w3m wmctrl xdotool xfce4-terminal xterm \
+  linux-image-extra-virtual
 
 echo "--"
 echo "---- Installing VNX application:"
@@ -378,15 +404,17 @@ echo "--"
 echo "---- Modifiying VNX config file (/etc/vnx.conf):"
 echo "--"
 mv /usr/share/vnx/etc/vnx.conf.sample /etc/vnx.conf
-# Set svg viewer to inkview
-sed -i -e '/\[general\]/{:a;n;/^$/!ba;i\svg_viewer=inkview' -e '}' /etc/vnx.conf
-# Set console to gnome-terminal
+# Set svg viewer to eog
+sed -i -e '/\[general\]/{:a;n;/^$/!ba;i\svg_viewer=eog' -e '}' /etc/vnx.conf
+# Set console to xfce4-terminal
 sed -i -e '/console_term/d' /etc/vnx.conf
 sed -i -e '/\[general\]/{:a;n;/^$/!ba;i\console_term=xfce4-terminal' -e '}' /etc/vnx.conf
 # Set exe_host_cmd to yes
 sed -i -e 's/^exe_host_cmds.*/exe_host_cmds=yes/' /etc/vnx.conf
 # Disable aa_unconfined
 #sed -i -e 's/aa_unconfined=.*/aa_unconfined=no/' /etc/vnx.conf
+# Set union_type to overlayfs
+sed -i -e 's/^union_type.*/union_type = overlayfs/' /etc/vnx.conf
 # Enable overlayfs_workdir_option
 sed -i -e 's/^overlayfs_workdir_option.*/overlayfs_workdir_option=yes/' /etc/vnx.conf
 
@@ -395,7 +423,7 @@ echo "-- Installing additional packages:"
 echo "--"
 add-apt-repository -y ppa:webupd8team/y-ppa-manager
 $APT_CMD update
-$APT_CMD -y install yad nmap aptsh tinc file-roller gedit wireshark tshark 
+$APT_CMD -y install yad nmap aptsh tinc file-roller gedit wireshark tshark traceroute
 
 echo "--"
 echo "---- Setting Wireshark capture permission for vagrant and $NEWUSER:"
@@ -420,8 +448,8 @@ if [ -f $INSTALLDIR/customize.sh ]; then
   echo "--"
   echo "---- Executing customization script"
   echo "--"
-  $APT_CMD -y install $ADDITIONAL_PACKAGES
   source $INSTALLDIR/customize.sh
+  $APT_CMD -y install $ADDITIONAL_PACKAGES
 else
   echo "--"
   echo "---- No customization script found"

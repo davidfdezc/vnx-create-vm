@@ -1,0 +1,32 @@
+#!/bin/bash
+
+if ! command -v vmware-vdiskmanager; then 
+  echo "--"
+  echo "-- ERROR: command vmware-vdiskmanager not found in the system"
+  echo "--"
+  exit 1
+fi
+
+VMFOLDER=$( VBoxManage list systemproperties | grep 'Default machine folder' | awk -F ':' '{ print $2 }' | xargs )
+echo "VMFOLDER=$VMFOLDER"
+
+VMNAME=$( vboxmanage showvminfo `cat .vagrant/machines/default/virtualbox/id` --machinereadable | grep "name=" | awk -F '=' '{ print $2 }' | xargs )
+echo "VMNAME=$VMNAME"
+
+VMDIR="$VMFOLDER/$VMNAME"
+echo "VMDIR=$VMDIR"
+
+cd "$VMDIR"
+VMDISK=$( ls *.vmdk )
+
+echo "-- Defragmenting and shrinking disk '$VMDIR/$VMDISK'"
+
+echo "--"
+echo "-- Defragmenting disk..."
+vmware-vdiskmanager -d "$VMDISK"
+
+echo "--"
+echo "-- Shrinking disk..."
+vmware-vdiskmanager -k "$VMDISK"
+
+echo "-- ...done"

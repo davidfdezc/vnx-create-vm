@@ -24,7 +24,7 @@ vboxmanage sharedfolder remove `cat .vagrant/machines/default/virtualbox/id` --n
 vboxmanage modifyvm `cat .vagrant/machines/default/virtualbox/id` --clipboard bidirectional
 
 # Change main memory
-vboxmanage modifyvm $vm_name --memory 1536
+#vboxmanage modifyvm $vm_name --memory 1536
 
 # Increase video memory
 vboxmanage modifyvm $vm_name --vram 128

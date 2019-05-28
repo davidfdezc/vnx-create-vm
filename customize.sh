@@ -14,7 +14,7 @@
 #
 
 # List of additional packages to be installed (space separated list)
-ADDITIONAL_PACKAGES=''
+ADDITIONAL_PACKAGES='abiword chromium-browser nodejs id3 id3v2 ffmpeg'
 
 #
 # Customization script. It may use the following environment variables (see others in bootstap.sh):
@@ -23,8 +23,15 @@ ADDITIONAL_PACKAGES=''
 # NEWUSER -> username
 # INSTALLDIR -> shared directory where host files are accesible
 
-echo "---- Copying VNX rootfs:"
-cd /usr/share/vnx/filesystems/
+# Install sublime text editor
+wget -qO - https://download.sublimetext.com/sublimehq-pub.gpg | sudo apt-key add -
+sudo apt-add-repository "deb https://download.sublimetext.com/ apt/stable/"
+sudo apt install -y sublime-text
+
+
+
+#echo "---- Copying VNX rootfs:"
+#cd /usr/share/vnx/filesystems/
 #/usr/bin/vnx_download_rootfs -n -l -r vnx_rootfs_lxc_ubuntu-16.04-v025 -y
 #ln -s rootfs_lxc_ubuntu rootfs_lxc
 
@@ -36,7 +43,7 @@ cd /usr/share/vnx/filesystems/
 #    exit
 #else
     # Copy rootfs
-    vnx_download_rootfs -r vnx_rootfs_lxc_ubuntu-16.04-v025.tgz -l -y
+#    vnx_download_rootfs -r vnx_rootfs_lxc_ubuntu-16.04-v025.tgz -l -y
 
     #ROOTFSPATHNAME=`readlink -f $INSTALLDIR/filesystems/rootfs_lxc64`
     #ROOTFSNAME=`basename $ROOTFSPATHNAME`

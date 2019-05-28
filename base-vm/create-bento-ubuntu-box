@@ -16,18 +16,18 @@
 #
 # Default values
 # Can be changed through command line args
-GUI=no                # -g full|core|no
+GUI=no                # -g gnome|lubuntu|lubuntucore|no
 ARCH=32               # -a 64|32
-DIST=wily             # -d precise|trusty|vivid|wily|xenial|zesty
+DIST=bionic           # -d precise|trusty|vivid|wily|xenial|zesty|artful|bionic
 VNX=no                # -v yes|no
 DOWNLOAD='yes'	      # -n
 
 USAGE="
-create-ubuntu-box [-g full/core/no] [-a arch] [-d distrib] [-v yes|no] [-y]
+create-ubuntu-box [-g gnome|lubuntu/lubuntucore/no] [-a arch] [-d distrib] [-v yes|no] [-y]
 
-    -g -> whether the GUI is installed (full/core/no, default $GUI)
+    -g -> whether the GUI is installed (gnome/lubuntu/lubuntucore/no, default $GUI)
     -a -> architecture (32/64, default $ARCH)
-    -d -> ubuntu distribution (precise, trusty, vivid, wily, xenial, zesty, default $DIST)
+    -d -> ubuntu distribution (precise, trusty, vivid, wily, xenial, zesty, artful, bionic, default $DIST)
     -v -> whether VNX package dependencies are installed (yes/no, default $VNX)
     -y -> do not ask for confirmation before executing 'vagrant destroy' command
     -n -> do not download the base image
@@ -35,19 +35,21 @@ create-ubuntu-box [-g full/core/no] [-a arch] [-d distrib] [-v yes|no] [-y]
 "
 
 
-while getopts ":g:a:d:v:hnf" opt; do
+while getopts ":g:a:d:v:hnfy" opt; do
     case "$opt" in
         g)
             GUI="$OPTARG"
-            if [[ "$OPTARG" == 'full' ]]; then
+            if [[ "$OPTARG" == 'gnome' ]]; then
+                GUIID="-gnome"
+            elif [[ "$OPTARG" == 'lubuntu' ]]; then
                 GUIID="-lubuntu"
-            elif [[ "$OPTARG" == 'core' ]]; then
+            elif [[ "$OPTARG" == 'lubuntucore' ]]; then
                 GUIID="-lubuntucore"
             elif [[ "$OPTARG" == 'no' ]]; then
                 GUIID=""
             else
                 echo "--"
-                echo "ERROR: -g option should be 'full', 'core' or 'no'"
+                echo "ERROR: -g option should be 'gnome', 'lubuntu' 'lubuntucore' or 'no'"
                 echo "--"
                 exit 1
             fi ;;
@@ -113,11 +115,15 @@ else
   BOXNAMEEXT=''
 fi
 
-if [[ "$DIST" == 'zesty' ]]; then
+if [[ "$DIST" == 'bionic' ]]; then
+  BOXVERSION='ubuntu-18.04'
+elif [[ "$DIST" == 'artful' ]]; then
+  BOXVERSION='ubuntu-17.10'
+elif [[ "$DIST" == 'zesty' ]]; then
   BOXVERSION='ubuntu-17.04'
 elif [[ "$DIST" == 'xenial' ]]; then
   BOXVERSION='ubuntu-16.04'
-elif [[ "$DIST" == 'willy' ]]; then
+elif [[ "$DIST" == 'wily' ]]; then
   BOXVERSION='ubuntu-15.10'
 elif [[ "$DIST" == 'trusty' ]]; then
   BOXVERSION='ubuntu-14.04'
@@ -173,7 +179,9 @@ else
     fi 
 fi
 
+#
 # Create Vagrantfile
+#
 echo "--"
 echo "-- Creating Vagrantfile..."
 cat > Vagrantfile <<EOF
@@ -207,7 +215,14 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
 end
 EOF
+#
+# End of Vagrantfile
+#
 
+
+# 
+# apt-fast installation
+#
 APT_OPTIONS='-o Dpkg::Options::="--force-confold"'
 
 if [[ "$APT_FAST" == 'yes' ]]; then
@@ -263,7 +278,7 @@ $XENIAL_IF_NAMING_CMDS
 
 # Delete the 'quiet' parameter in kernel parameters 
 sed -i -e '/^GRUB_CMDLINE_LINUX_DEFAULT=/d' /etc/default/grub
-sed -i -e '/^GRUB_CMDLINE_LINUX/a GRUB_CMDLINE_LINUX=""' /etc/default/grub
+sed -i -e '/^GRUB_CMDLINE_LINUX/a GRUB_CMDLINE_LINUX_DEFAULT=""' /etc/default/grub
 update-grub
 
 #if [ \$( lsb_release -sr ) == "16.04" ]; then
@@ -285,12 +300,14 @@ if [ -f /lib/systemd/system/networking.service ]; then
     sed -i -e 's/TimeoutStartSec=5min/TimeoutStartSec=30sec/' /lib/systemd/system/networking.service 
 fi
 
-
+# Do not clear the console when showing login
+mkdir -p /etc/systemd/system/getty@tty1.service.d/
+echo "[Service]" > /etc/systemd/system/getty@tty1.service.d/override.conf
+echo "TTYVTDisallocate=no" >> /etc/systemd/system/getty@tty1.service.d/override.conf
 
 echo "--"
 echo "-- Setting packages sources to ${PACKAGESSOURCE}.archive.com package list:"
 echo "--"
-#sed -i -e 's/\/archive\.ubuntu/\/${PACKAGESSOURCE}\.archive\.ubuntu/g' /etc/apt/sources.list
 sed -i -e 's#//.*archive\.ubuntu#//${PACKAGESSOURCE}.archive.ubuntu#g' /etc/apt/sources.list
 
 echo "--"
@@ -315,22 +332,28 @@ $APT_CMD -y dist-upgrade
 echo '--'
 echo '-- Installing additional useful packages:'
 echo '--'
-$APT_CMD -y install aptsh curl
+$APT_CMD -y install aptsh curl tree
 
-echo ""
+# Install virtualbox-guest-utils to avoid "mount: wrong fs type, bad option, bad superblock on vagrant" error
+echo "--"
+echo "-- apt-get -y --no-install-recommends install virtualbox-guest-utils"
+echo "--"
+apt-get -y --no-install-recommends install virtualbox-guest-utils
+
+echo "--"
 echo "Installing VBoxGuestAdditions..."
-echo ""
+echo "--"
 echo "Installing packages required:"
-echo ""
+echo "--"
 uname -a
 uname -r
 KERNELVER=\$(uname -r)
 echo $APT_CMD -y install linux-headers-\$KERNELVER build-essential dkms
 $APT_CMD -y install linux-headers-\$KERNELVER build-essential dkms
 VER=\$( curl -s http://download.virtualbox.org/virtualbox/LATEST.TXT )
-echo ""
+echo "--"
 echo "Getting latest version of VBoxGuestAdditions for Linux: \$VER"
-echo ""
+echo "--"
 wget -nv http://download.virtualbox.org/virtualbox/\$VER/VBoxGuestAdditions_\$VER.iso
 mkdir /media/VBoxGuestAdditions
 mount -o loop,ro VBoxGuestAdditions_\$VER.iso /media/VBoxGuestAdditions
@@ -340,23 +363,24 @@ rm VBoxGuestAdditions_\$VER.iso
 umount /media/VBoxGuestAdditions
 rmdir /media/VBoxGuestAdditions
 
-# Install virtualbox-guest-utils to avoid "mount: wrong fs type, bad option, bad superblock on vagrant" error
-echo "--"
-echo "-- apt-get -y --no-install-recommends install virtualbox-guest-utils"
-echo "--"
-apt-get -y --no-install-recommends install virtualbox-guest-utils
 echo "--------------------------------------------------------------------------------------------------------"
 
 EOF
 
 # Add GUI package installation if requested
-if [[ "$GUI" == 'full' ]]; then
+if [[ "$GUI" == 'gnome' ]]; then
+  echo "" >> bootstrap.sh
+  echo "echo '--'" >> bootstrap.sh
+  echo "echo '-- Installing Gnome full desktop:'" >> bootstrap.sh
+  echo "echo '--'" >> bootstrap.sh
+  echo "$APT_CMD -y --no-install-recommends install ubuntu-desktop" >> bootstrap.sh
+elif [[ "$GUI" == 'lubuntu' ]]; then
   echo "" >> bootstrap.sh
   echo "echo '--'" >> bootstrap.sh
   echo "echo '-- Installing lubuntu full desktop:'" >> bootstrap.sh
   echo "echo '--'" >> bootstrap.sh
   echo "$APT_CMD -y --no-install-recommends install lubuntu-desktop" >> bootstrap.sh
-elif [[ "$GUI" == 'core' ]]; then
+elif [[ "$GUI" == 'lubuntucore' ]]; then
   echo "" >> bootstrap.sh
   echo "echo '--'" >> bootstrap.sh
   echo "echo '-- Installing lubuntu core desktop:'" >> bootstrap.sh
@@ -375,13 +399,13 @@ echo '--'
 $APT_CMD -y install linux-headers-generic build-essential dkms
 $APT_CMD -y install qemu-kvm libvirt-bin vlan xterm bridge-utils screen virt-manager \
   virt-viewer uml-utilities graphviz genisoimage gnome-terminal tree \
-  curl w3m picocom expect lxc wmctrl xdotool pv bash-completion \
+  curl w3m picocom expect lxc lxc-templates wmctrl xdotool pv bash-completion \
   libnetaddr-ip-perl libxml-libxml-perl libxml-tidy-perl libappconfig-perl \
   libreadonly-perl libterm-readline-perl-perl libnet-pcap-perl libnet-ipv6addr-perl \
   libsys-virt-perl libnet-telnet-perl liberror-perl libexception-class-perl \
   libxml-dom-perl libdbi-perl libmath-round-perl libio-pty-perl libnet-ip-perl \
   libxml-checker-perl libxml-parser-perl libfile-homedir-perl libswitch-perl openvswitch-switch \
-  linux-image-extra-virtual xfce4-terminal
+  linux-image-extra-virtual xfce4-terminal eog
 EOF
 
 fi
@@ -399,18 +423,15 @@ cat >> bootstrap.sh <<EOF
 #echo "--"
 #cat /etc/hosts
 
-echo '--'
-echo '-- Adding vagrant insecure public key to allow "vagrant ssh command without password::'
-echo '--'
-
+# echo '--'
+# echo '-- Adding vagrant insecure public key to allow "vagrant ssh command without password::'
+# echo '--'
 wget -nv https://raw.githubusercontent.com/mitchellh/vagrant/master/keys/vagrant.pub -O /tmp/vagrant.pub
 cat /tmp/vagrant.pub
-
 mkdir -p /home/vagrant/.ssh
 cd /home/vagrant/.ssh
-cat /tmp/vagrant.pub > authorized_keys 
+cat /tmp/vagrant.pub >> authorized_keys 
 chown -R vagrant.vagrant /home/vagrant/.ssh
-
 rm /tmp/vagrant.pub
 
 # Test to see if the "default: stdin: is not a tty" message dissapears
@@ -468,7 +489,7 @@ NEWBOXFILENAME=${NEWBOXBASEFILENAME}-${DATE}.box
 # Delete private key created to force using the vagrant insecure key
 #ls -al .vagrant/machines/default/virtualbox/private_key
 #cat .vagrant/machines/default/virtualbox/private_key
-rm -f .vagrant/machines/default/virtualbox/private_key
+######## rm -f .vagrant/machines/default/virtualbox/private_key
 #read -p "Press [Enter] key to continue"
 
 echo "--"
@@ -476,17 +497,17 @@ echo "-- Packaging new box:"
 echo "--   Command: vagrant package --output ${NEWBOXFILENAME}"
 vagrant package --output ${NEWBOXFILENAME}
 
-# Copy the new box to idefix repository
-rm -vf /var/www/download/vagrant/${NEWBOXFILENAME}
-cp ${NEWBOXFILENAME} /var/www/download/vagrant
-chmod +r /var/www/download/vagrant/${NEWBOXFILENAME}
-# Create 'latest' link
-rm -vf /var/www/download/vagrant/${NEWBOXBASEFILENAME}-latest.box
-ln -s /var/www/download/vagrant/${NEWBOXFILENAME} /var/www/download/vagrant/${NEWBOXBASEFILENAME}-latest.box
+# # Copy the new box to idefix repository
+# rm -vf /var/www/download/vagrant/${NEWBOXFILENAME}
+# cp ${NEWBOXFILENAME} /var/www/download/vagrant
+# chmod +r /var/www/download/vagrant/${NEWBOXFILENAME}
+# # Create 'latest' link
+# rm -vf /var/www/download/vagrant/${NEWBOXBASEFILENAME}-latest.box
+# ln -s /var/www/download/vagrant/${NEWBOXFILENAME} /var/www/download/vagrant/${NEWBOXBASEFILENAME}-latest.box
 
 echo "--"
 echo "-- Adding new box to system:"
-echo "--   Command: vagrant box add --force ${NEWBOXNAME} ${NEWBOXBASEFILENAME}-latest.box"
+echo "--   Command: vagrant box add --force ${NEWBOXNAME} ${NEWBOXFILENAME}"
 vagrant box add --force ${NEWBOXNAME} ${NEWBOXFILENAME}
 
 echo "-- Deleting VM and auxiliar files:"
@@ -500,4 +521,3 @@ echo "-- To test it execute:"
 echo "--     vagrant init ${NEWBOXNAME}"
 echo "--     vagrant up"
 echo "--     vagrant ssh"
-
