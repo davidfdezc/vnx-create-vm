@@ -1,32 +1,91 @@
 #!/bin/bash
 
-if ! command -v vmware-vdiskmanager; then 
+function pause(){
+   echo "--"
+   read -p "Press any key to continue..."
+}
+
+LOCALDIR=$( pwd )
+#echo "LOCALDIR=$LOCALDIR"
+
+VMFOLDER=$( VBoxManage list systemproperties | grep 'Default machine folder' | awk -F ':' '{ print $2 }' | xargs )
+#echo "VMFOLDER=$VMFOLDER"
+
+VMNAME=$( vboxmanage showvminfo `cat .vagrant/machines/default/virtualbox/id` --machinereadable | grep "name=" | awk -F '=' '{ print $2 }' | xargs )
+#echo "VMNAME=$VMNAME"
+
+VMDIR="$VMFOLDER/$VMNAME"
+#echo "VMDIR=$VMDIR"
+
+cd "$VMDIR"
+VMDISK=$( ls *.vmdk )
+#echo "VMDISK=$VMDISK"
+
+VMDISKNAME="${VMDISK%.*}"
+#echo "VMDISKNAME=$VMDISKNAME"
+
+VMDISKUUID=$( vboxmanage showhdinfo "$VMDISK" | grep "^UUID:" | awk '{print $2}' )
+#echo "VMDISKUUID=$VMDISKUUID"
+
+echo "--"
+echo "-- Compacting disk:"
+echo "--   VM: $VMNAME"
+echo "--   Disk UUID: $VMDISKUUID"
+echo "--   Disk file: '$VMDIR/$VMDISK'"
+
+if [ -e ${VMDISKNAME}.vdi ]; then
   echo "--"
-  echo "-- ERROR: command vmware-vdiskmanager not found in the system"
+  echo "-- ERROR: cannot convert disk to VDI format." 
+  echo "--        File ${VMDIR}${VMDISKNAME}.vdi already exists"
+  echo "--        Delete it manually using the following command:"
+  echo "--          vboxmanage closemedium disk \"${VMDIR}/${VMDISKNAME}.vdi\" --delete"
+  echo "--        and execute the script again."
   echo "--"
   exit 1
 fi
 
-VMFOLDER=$( VBoxManage list systemproperties | grep 'Default machine folder' | awk -F ':' '{ print $2 }' | xargs )
-echo "VMFOLDER=$VMFOLDER"
+echo "--"
+echo "-- Making a backup of vmdk disk..."
+cp -v "${VMDIR}/${VMDISKNAME}.vmdk" "${VMDIR}/${VMDISKNAME}.vmdk.bak"
 
-VMNAME=$( vboxmanage showvminfo `cat .vagrant/machines/default/virtualbox/id` --machinereadable | grep "name=" | awk -F '=' '{ print $2 }' | xargs )
-echo "VMNAME=$VMNAME"
-
-VMDIR="$VMFOLDER/$VMNAME"
-echo "VMDIR=$VMDIR"
-
-cd "$VMDIR"
-VMDISK=$( ls *.vmdk )
-
-echo "-- Defragmenting and shrinking disk '$VMDIR/$VMDISK'"
+#pause
 
 echo "--"
-echo "-- Defragmenting disk..."
-vmware-vdiskmanager -d "$VMDISK"
+echo "-- Converting disk from vmdk to vdi..."
+echo "--   vboxmanage clonehd $VMDISK ${VMDISKNAME}.vdi --format vdi"
+vboxmanage clonehd $VMDISK ${VMDISKNAME}.vdi --format vdi
+
+#pause
 
 echo "--"
-echo "-- Shrinking disk..."
-vmware-vdiskmanager -k "$VMDISK"
+echo "-- Compacting vdi disk..."
+echo "--   vboxmanage modifyhd ${VMDISKNAME}.vdi --compact"
+vboxmanage modifyhd ${VMDISKNAME}.vdi --compact
+
+#pause
+
+echo "--"
+echo "-- Deleting the original disk and converting the vdi disk to vmdk..."
+#rm -v "${VMDIR}/${VMDISKNAME}.vmdk"
+echo "--   vboxmanage clonehd ${VMDISKNAME}.vdi ${VMDISKNAME}-new.vmdk --format vmdk"
+vboxmanage clonehd ${VMDISKNAME}.vdi ${VMDISKNAME}-new.vmdk --format vmdk
+echo "--   vboxmanage closemedium disk \"${VMDIR}/${VMDISKNAME}-new.vmdk\""
+vboxmanage closemedium disk "${VMDIR}/${VMDISKNAME}-new.vmdk"
+
+#pause
+
+echo "--"
+echo "-- Setting the original UUID in the new disk..."
+echo "--   vboxmanage internalcommands sethduuid \"${VMDIR}/${VMDISKNAME}-new.vmdk\" $VMDISKUUID"
+vboxmanage internalcommands sethduuid "${VMDIR}/${VMDISKNAME}-new.vmdk" $VMDISKUUID
+mv -v ${VMDISKNAME}-new.vmdk ${VMDISKNAME}.vmdk 
+
+#pause
+
+echo "--"
+echo "-- Copying the vdi disk to localdir and deleting it from Virtualbox..."
+cp -v "${VMDIR}/${VMDISKNAME}.vdi" $LOCALDIR
+echo "--   vboxmanage closemedium disk \"${VMDIR}/${VMDISKNAME}.vdi\" --delete"
+vboxmanage closemedium disk "${VMDIR}/${VMDISKNAME}.vdi" --delete
 
 echo "-- ...done"
