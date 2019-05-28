@@ -8,10 +8,10 @@ function pause(){
 LOCALDIR=$( pwd )
 #echo "LOCALDIR=$LOCALDIR"
 
-VMFOLDER=$( VBoxManage list systemproperties | grep 'Default machine folder' | awk -F ':' '{ print $2 }' | xargs )
-#echo "VMFOLDER=$VMFOLDER"
+VMFOLDER=$( VBoxManage list systemproperties | grep '^Default machine folder' | awk -F ':' '{ print $2 }' | xargs )
+#echo "VMFOLDER='$VMFOLDER'"
 
-VMNAME=$( vboxmanage showvminfo `cat .vagrant/machines/default/virtualbox/id` --machinereadable | grep "name=" | awk -F '=' '{ print $2 }' | xargs )
+VMNAME=$( vboxmanage showvminfo `cat .vagrant/machines/default/virtualbox/id` --machinereadable | grep "^name=" | awk -F '=' '{ print $2 }' | xargs )
 #echo "VMNAME=$VMNAME"
 
 VMDIR="$VMFOLDER/$VMNAME"
