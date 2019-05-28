@@ -182,6 +182,8 @@ if [ "$GUI" == "gnome" -o "$GUI" == "lubuntu" -o "$GUI" == "lubuntucore" ]; then
     $APT_CMD -y --no-install-recommends install ubuntu-desktop
     # Set autologin to the new created account
     sed -i -e 's/.*AutomaticLoginEnable =.*/AutomaticLoginEnable = true/' -e "s/.*AutomaticLogin =.*/AutomaticLogin = $NEWUSER/" /etc/gdm3/custom.conf
+    # Disable screensaver (does not work)
+    # su $NEWUSER gsettings set org.gnome.desktop.screensaver lock-enabled false
 
 
   elif [ "$GUI" == "lubuntu" -o "$GUI" == "lubuntucore" ]; then 
@@ -270,7 +272,7 @@ if [ "$GUI" == "gnome" -o "$GUI" == "lubuntu" -o "$GUI" == "lubuntucore" ]; then
   echo "Installing packages required:"
   echo ""
   $APT_CMD -y install linux-headers-generic build-essential dkms
-  VER=$( curl -s http://download.virtualbox.org/virtualbox/LATEST.TXT )
+  VER=$( curl -s http://download.virtualbox.org/virtualbox/LATEST-STABLE.TXT )
   echo ""
   echo "Getting latest version of VBoxGuestAdditions for Linux: $VER"
   echo ""
