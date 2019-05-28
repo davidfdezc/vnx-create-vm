@@ -27,6 +27,11 @@ package) to the first step, makes the second one much faster.
 
     apt-get install virtualbox vagrant
 
+  Additionally, the shrink-vm script uses "vmware-vdiskmanager" command from VMware. That command can 
+  be downloaded from VMware web (registration needed; free accounts posible):
+
+    https://my.vmware.com/group/vmware/get-download?downloadGroup=VDDK670 
+
 - Download scripts:
 
     git clone https://github.com/davidfdezc/vnx-create-vm.git
