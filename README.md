@@ -62,7 +62,7 @@ package) to the first step, makes the second one much faster.
       GUI=lubuntu
       VNX=yes
       HNAME=vnx-vm
-      NEWUSER=vnx   
+      NEWUSER=vnx
       NEWPASSWD=xxxx
       VMLANG=es 
       MEM=4096 
@@ -92,7 +92,7 @@ package) to the first step, makes the second one much faster.
 
 - (Only for lubuntu GUI) Once the VM is created and started, open a shell and execute: 
 
-    /usr/local/bin/config_desktop   
+    /usr/local/bin/config_desktop
 
   The login session will be automatically terminated. Login again to see the new desktop settings.
 

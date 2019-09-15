@@ -3,7 +3,7 @@
 #
 # VNX installation script for Vagrant VMs
 # 
-# Author: David Fernández (david@dit.upm.es)
+# Author: David Fernández (david.fernandez@upm.es)
 #
 # This file is part of the Virtual Networks over LinuX (VNX) Project distribution. 
 # (www: http://www.dit.upm.es/vnx - e-mail: vnx@dit.upm.es) 
@@ -185,7 +185,6 @@ if [ "$GUI" == "gnome" -o "$GUI" == "lubuntu" -o "$GUI" == "lubuntucore" ]; then
     # Disable screensaver (does not work)
     # su $NEWUSER gsettings set org.gnome.desktop.screensaver lock-enabled false
 
-
   elif [ "$GUI" == "lubuntu" -o "$GUI" == "lubuntucore" ]; then 
 
     #
@@ -254,11 +253,11 @@ if [ "$GUI" == "gnome" -o "$GUI" == "lubuntu" -o "$GUI" == "lubuntucore" ]; then
     echo "yad --text '\n\n\n    Present login session will be finished.    \n\n    Login again to load new settings.    ' --no-buttons --center &">> $CFGDESK
     echo "sleep 5" >> $CFGDESK
     echo "pkill -SIGTERM -f lxsession" >> $CFGDESK
-  
+
     #echo "kill \$PID" >> $CFGDESK
-  
+
     chmod +x $CFGDESK
-  
+
     # Set autologin to the new created account
     mkdir -p /etc/lightdm/lightdm.conf.d/
     echo "[SeatDefaults]" > /etc/lightdm/lightdm.conf.d/20-lubuntu.conf
@@ -286,7 +285,12 @@ if [ "$GUI" == "gnome" -o "$GUI" == "lubuntu" -o "$GUI" == "lubuntucore" ]; then
 
   # Add new user to vboxsf group to allow shared folders
   usermod -a -G vboxsf $NEWUSER
-  
+
+  # Optional: install sublime text editor
+  #wget -qO - https://download.sublimetext.com/sublimehq-pub.gpg | sudo apt-key add -
+  #apt-add-repository "deb https://download.sublimetext.com/ apt/stable/"
+  #$APT_CMD -y install sublime-text
+
   echo ""
   echo "Installing open-vm-tools (for VMware):"
   echo ""

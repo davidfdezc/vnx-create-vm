@@ -13,6 +13,8 @@
 # SPAIN
 #
 
+START_TIME=$SECONDS
+
 #
 # Default values
 # Can be changed through command line args
@@ -149,7 +151,7 @@ NEWBOXBASEFILENAME="$DIST$GUIID$VNXID-cloudimg-$ARCHID-vagrant-disk1"
 NEWBOXNAME="$DIST$ARCH$GUIID$VNXID-updated"
 
 # Repository to download updated packages from
-PACKAGESSOURCE="es"
+#PACKAGESSOURCE="es"
 
 echo "--"
 echo "DIST=$DIST, ARCH=$ARCH, GUI=$GUI, VNX=$VNX"
@@ -297,7 +299,7 @@ if [ -f /lib/systemd/system/networking.service ]; then
 	echo "--"
 	echo "-- Reducing network interface autoconfiguration timeout to 30 secs..."
 	echo "--"
-    sed -i -e 's/TimeoutStartSec=5min/TimeoutStartSec=30sec/' /lib/systemd/system/networking.service 
+	sed -i -e 's/TimeoutStartSec=5min/TimeoutStartSec=30sec/' /lib/systemd/system/networking.service 
 fi
 
 # Do not clear the console when showing login
@@ -306,9 +308,11 @@ echo "[Service]" > /etc/systemd/system/getty@tty1.service.d/override.conf
 echo "TTYVTDisallocate=no" >> /etc/systemd/system/getty@tty1.service.d/override.conf
 
 echo "--"
-echo "-- Setting packages sources to ${PACKAGESSOURCE}.archive.com package list:"
+#echo "-- Setting packages sources to ${PACKAGESSOURCE}.archive.ubuntu.com package list:"
+echo "-- Setting packages sources to mirrors.ubuntu.com package list:"
 echo "--"
-sed -i -e 's#//.*archive\.ubuntu#//${PACKAGESSOURCE}.archive.ubuntu#g' /etc/apt/sources.list
+#sed -i -e 's#//.*archive\.ubuntu#//${PACKAGESSOURCE}.archive.ubuntu#g' /etc/apt/sources.list
+sed -i -e 's#deb\s*http://.*archive.ubuntu.com/ubuntu/#deb mirror://mirrors.ubuntu.com/mirrors.txt#' /etc/apt/sources.list
 
 echo "--"
 echo "-- Updating package list:"
@@ -316,7 +320,6 @@ echo "--"
 export DEBIAN_FRONTEND=noninteractive
 
 $INSTALL_APT_FAST
-
 $APT_CMD update
 
 echo "--"
@@ -444,6 +447,9 @@ $APT_CMD -y autoremove
 $APT_CMD clean
 history -c
 
+echo "-- ..halting VM"
+sync
+sync
 halt -p
 #reboot
 echo "----"
@@ -471,9 +477,12 @@ fi
 
 
 VMID=$( cat .vagrant/machines/default/virtualbox/id )
+echo "----------"
+echo "VMID=$VMID"
+echo "----------"
 
 # Wait till VM stops
-while [[ $( VBoxManage list runningvms | grep $VMID ) ]]; do sleep 1; done
+while [[ $( VBoxManage list runningvms | grep $VMID ) ]]; do echo "-- ...waiting for VM to stop..."; sleep 5; done
 
 # If Ubuntu 16.04 (Xenial) disable COM1 port
 if [[ "$DIST" == 'xenial' ]]; then
@@ -515,8 +524,9 @@ echo "--   Command: vagrant destroy --force"
 vagrant destroy --force
 rm -v Vagrantfile bootstrap.sh ${NEWBOXFILENAME}
 
+ELAPSED_TIME=$(($SECONDS - $START_TIME))
 echo "--"
-echo "-- New virtual machine (${NEWBOXNAME}/${NEWBOXFILENAME}) created"
+echo "-- New virtual machine (${NEWBOXNAME}/${NEWBOXFILENAME}) created in $ELAPSED_TIME seconds"
 echo "-- To test it execute:"
 echo "--     vagrant init ${NEWBOXNAME}"
 echo "--     vagrant up"
