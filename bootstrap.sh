@@ -163,6 +163,10 @@ echo "$NEWUSER:$PASSWD" | chpasswd
 adduser $NEWUSER sudo
 echo "$NEWUSER ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$NEWUSER
 
+# Create ~/bin directory and add it to the PATH
+mkdir -f /home/$NEWUSER/bin
+sudo bash -c "echo 'PATH=\$PATH:/home/$NEWUSER/bin' >> /home/$NEWUSER/.bashrc "
+
 
 #
 # Installing GUI if requested
@@ -298,6 +302,9 @@ if [ "$GUI" == "gnome" -o "$GUI" == "lubuntu" -o "$GUI" == "lubuntucore" ]; then
 
 fi
 
+# Disable apport to avoid "System program problem detected"
+sed -i -e 's/^enabled=1/enabled=0/' /etc/default/apport 
+
 # Create script to config some desktop issues
 CLEANHALT=/usr/local/bin/clean_and_halt
 echo "#!/bin/bash" > $CLEANHALT
@@ -307,7 +314,8 @@ echo "sudo apt-get autoremove" >> $CLEANHALT
 echo "sudo apt-get clean" >> $CLEANHALT
 echo "sudo dd if=/dev/zero of=/zerofile bs=1M" >> $CLEANHALT
 echo "sudo rm -f /zerofile" >> $CLEANHALT
-echo "sudo history -c" >> $CLEANHALT
+echo "sudo rm -f /var/crash/*" >> $CLEANHALT
+echo "sudo bash -c 'history -c'" >> $CLEANHALT
 echo "history -c" >> $CLEANHALT
 echo "sudo halt -p" >> $CLEANHALT
 chmod +x $CLEANHALT
@@ -383,7 +391,7 @@ echo "---- Installing required packages:"
 echo "--"
 
 export DEBIAN_FRONTEND=noninteractive
-$APT_CMD -y install 
+$APT_CMD -y install \
   bash-completion bridge-utils curl eog expect genisoimage gnome-terminal \
   graphviz libappconfig-perl libdbi-perl liberror-perl libexception-class-perl \
   libfile-homedir-perl libio-pty-perl libmath-round-perl libnetaddr-ip-perl \
@@ -393,7 +401,7 @@ $APT_CMD -y install
   libxml-parser-perl libxml-tidy-perl lxc lxc-templates net-tools \
   openvswitch-switch picocom pv qemu-kvm screen tree uml-utilities virt-manager \
   virt-viewer vlan w3m wmctrl xdotool xfce4-terminal xterm \
-  linux-image-extra-virtual
+  linux-image-extra-virtual eog
 
 echo "--"
 echo "---- Installing VNX application:"
@@ -446,6 +454,14 @@ adduser $NEWUSER wireshark
 #echo "--"
 #echo "-- Changing vim color scheme..."
 #echo "colorscheme elflord" >> /home/$NEWUSER/.vimrc
+
+#
+# Copy customizedir to VM
+#
+if [ -d "$INSTALLDIR/customizedir" ]; then
+        cp -a $INSTALLDIR/customizedir /home/$NEWUSER/customizedir
+        chown -R $NEWUSER.$NEWUSER /home/$NEWUSER/customizedir
+fi
 
 #
 # Execute customization script if exists

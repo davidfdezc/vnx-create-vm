@@ -400,15 +400,16 @@ echo '--'
 echo '-- Installing VNX package dependencies:'
 echo '--'
 $APT_CMD -y install linux-headers-generic build-essential dkms
-$APT_CMD -y install qemu-kvm libvirt-bin vlan xterm bridge-utils screen virt-manager \
-  virt-viewer uml-utilities graphviz genisoimage gnome-terminal tree \
-  curl w3m picocom expect lxc lxc-templates wmctrl xdotool pv bash-completion \
-  libnetaddr-ip-perl libxml-libxml-perl libxml-tidy-perl libappconfig-perl \
-  libreadonly-perl libterm-readline-perl-perl libnet-pcap-perl libnet-ipv6addr-perl \
-  libsys-virt-perl libnet-telnet-perl liberror-perl libexception-class-perl \
-  libxml-dom-perl libdbi-perl libmath-round-perl libio-pty-perl libnet-ip-perl \
-  libxml-checker-perl libxml-parser-perl libfile-homedir-perl libswitch-perl openvswitch-switch \
-  linux-image-extra-virtual xfce4-terminal eog
+$APT_CMD -y install \
+  bash-completion bridge-utils curl eog expect genisoimage gnome-terminal \
+  graphviz libappconfig-perl libdbi-perl liberror-perl libexception-class-perl \
+  libfile-homedir-perl libio-pty-perl libmath-round-perl libnetaddr-ip-perl \
+  libnet-ip-perl libnet-ipv6addr-perl libnet-pcap-perl libnet-telnet-perl \
+  libreadonly-perl libswitch-perl libsys-virt-perl libterm-readline-perl-perl \
+  libvirt-bin libxml-checker-perl libxml-dom-perl libxml-libxml-perl \
+  libxml-parser-perl libxml-tidy-perl lxc lxc-templates net-tools \
+  openvswitch-switch picocom pv qemu-kvm screen tree uml-utilities virt-manager \
+  virt-viewer vlan w3m wmctrl xdotool xfce4-terminal xterm eog
 EOF
 
 fi

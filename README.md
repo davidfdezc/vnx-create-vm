@@ -104,7 +104,7 @@ package) to the first step, makes the second one much faster.
  
     /usr/local/bin/clean_and_halt
 
-  Note: this script takes some time as it fulls th filesystem with zeros to allow better compression.
+  Note: this script takes some time as it fulls the filesystem with zeros to allow better compression.
 
 - Shrink VM by executing:
 
