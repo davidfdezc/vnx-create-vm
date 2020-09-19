@@ -471,7 +471,6 @@ if [ -f $INSTALLDIR/customize.sh ]; then
   echo "---- Executing customization script"
   echo "--"
   source $INSTALLDIR/customize.sh
-  $APT_CMD -y install $ADDITIONAL_PACKAGES
 else
   echo "--"
   echo "---- No customization script found"

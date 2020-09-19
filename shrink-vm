@@ -5,6 +5,37 @@ function pause(){
    read -p "Press any key to continue..."
 }
 
+Usage="--
+-- Usage: shrink-vm [-l] [-h]
+--           -l: create a copy of the vm disk in local directory
+--           -d: delete the backup of the original disk at the end
+--           -h: print help
+--"
+
+while getopts ":hld" opt; do
+  case $opt in
+    l)
+      LOCALDISKCOPY=yes
+      ;;
+    d)
+      DELETEBACKUP=yes
+      ;;
+    h)
+      #echo "-h was triggered!" >&2
+      echo "$Usage"
+      exit 0
+      ;;
+    \?)
+      echo "-- ERROR: invalid option -$OPTARG" >&2
+      ;;
+    :)
+      echo "-- ERROR: option -$OPTARG requires an argument" >&2
+      echo "$Usage"
+  exit 1
+      ;;
+  esac
+done
+
 LOCALDIR=$( pwd )
 #echo "LOCALDIR=$LOCALDIR"
 
@@ -51,9 +82,16 @@ cp -v "${VMDIR}/${VMDISKNAME}.vmdk" "${VMDIR}/${VMDISKNAME}.vmdk.bak"
 #pause
 
 echo "--"
-echo "-- Converting disk from vmdk to vdi..."
+echo "-- Clone disk to vdi format..."
 echo "--   vboxmanage clonehd $VMDISK ${VMDISKNAME}.vdi --format vdi"
 vboxmanage clonehd $VMDISK ${VMDISKNAME}.vdi --format vdi
+
+if [ $? -ne 0 ]; then
+    echo "--"
+    echo "---- ERROR: Cannot clone disk to vdi format."
+    echo "--"
+    exit 1
+fi
 
 #pause
 
@@ -62,6 +100,12 @@ echo "-- Compacting vdi disk..."
 echo "--   vboxmanage modifyhd ${VMDISKNAME}.vdi --compact"
 vboxmanage modifyhd ${VMDISKNAME}.vdi --compact
 
+if [ $? -ne 0 ]; then
+    echo "--"
+    echo "---- ERROR: Cannot compact vdi disk."
+    echo "--"
+    exit 1
+fi
 #pause
 
 echo "--"
@@ -69,8 +113,20 @@ echo "-- Deleting the original disk and converting the vdi disk to vmdk..."
 #rm -v "${VMDIR}/${VMDISKNAME}.vmdk"
 echo "--   vboxmanage clonehd ${VMDISKNAME}.vdi ${VMDISKNAME}-new.vmdk --format vmdk"
 vboxmanage clonehd ${VMDISKNAME}.vdi ${VMDISKNAME}-new.vmdk --format vmdk
+if [ $? -ne 0 ]; then
+    echo "--"
+    echo "---- ERROR: Cannot clone disk to vmdk format."
+    echo "--"
+    exit 1
+fi
 echo "--   vboxmanage closemedium disk \"${VMDIR}/${VMDISKNAME}-new.vmdk\""
 vboxmanage closemedium disk "${VMDIR}/${VMDISKNAME}-new.vmdk"
+if [ $? -ne 0 ]; then
+    echo "--"
+    echo "---- ERROR: Cannot close cloned disk."
+    echo "--"
+    exit 1
+fi
 
 #pause
 
@@ -78,14 +134,43 @@ echo "--"
 echo "-- Setting the original UUID in the new disk..."
 echo "--   vboxmanage internalcommands sethduuid \"${VMDIR}/${VMDISKNAME}-new.vmdk\" $VMDISKUUID"
 vboxmanage internalcommands sethduuid "${VMDIR}/${VMDISKNAME}-new.vmdk" $VMDISKUUID
+if [ $? -ne 0 ]; then
+    echo "--"
+    echo "---- ERROR: Cannot set the original disk UUID to the cloned disk."
+    echo "--"
+    exit 1
+fi
 mv -v ${VMDISKNAME}-new.vmdk ${VMDISKNAME}.vmdk 
 
 #pause
 
+if [ "$LOCALDISKCOPY" == "yes" ]; then
 echo "--"
 echo "-- Copying the vdi disk to localdir and deleting it from Virtualbox..."
-cp -v "${VMDIR}/${VMDISKNAME}.vdi" $LOCALDIR
+    mv -v "${VMDIR}/${VMDISKNAME}.vdi" $LOCALDIR
 echo "--   vboxmanage closemedium disk \"${VMDIR}/${VMDISKNAME}.vdi\" --delete"
 vboxmanage closemedium disk "${VMDIR}/${VMDISKNAME}.vdi" --delete
 
+    echo "--"
+    echo "-- A local copy of the VM disk is available in: "
+    ls -lh $LOCALDIR/${VMDISKNAME}.vdi
+    echo "-- Delete it if not needed."
+else
+    echo "--"
+    echo "-- Deleting vdi disk copy..."
+    rm "${VMDIR}/${VMDISKNAME}.vdi"
+fi
+
+if [ "$DELETEBACKUP" == "yes" ]; then
+    echo "--"
+    echo "-- Deleting the disk backup made at the beginning of the process..."
+    rm -v "${VMDIR}/${VMDISKNAME}.vmdk.bak"
+else
+    echo "--"
+    echo "-- The backup of the original disk is available at:"
+    echo "--   ${VMDIR}/${VMDISKNAME}.vmdk.bak"
+    echo "-- Delete it if not needed."
+fi
+
+echo "--"
 echo "-- ...done"

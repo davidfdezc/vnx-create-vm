@@ -527,7 +527,7 @@ rm -v Vagrantfile bootstrap.sh ${NEWBOXFILENAME}
 
 ELAPSED_TIME=$(($SECONDS - $START_TIME))
 echo "--"
-echo "-- New virtual machine (${NEWBOXNAME}/${NEWBOXFILENAME}) created in $ELAPSED_TIME seconds"
+echo "-- New virtual machine (${NEWBOXNAME}/${NEWBOXFILENAME}) created"
 echo "-- To test it execute:"
 echo "--     vagrant init ${NEWBOXNAME}"
 echo "--     vagrant up"

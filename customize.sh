@@ -16,6 +16,9 @@
 # List of additional packages to be installed (space separated list)
 ADDITIONAL_PACKAGES='abiword chromium-browser nodejs id3 id3v2 ffmpeg'
 
+echo "---- Installing additional packages"
+sudo apt-get -y install $ADDITIONAL_PACKAGES
+
 #
 # Customization script. It may use the following environment variables (see others in bootstap.sh):
 #
