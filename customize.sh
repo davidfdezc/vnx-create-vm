@@ -3,7 +3,7 @@
 #
 # VNX installation script for Vagrant VMs
 # 
-# Author: David Fernández (david@dit.upm.es)
+# Author: David Fernández (david.fernandez@upm.es)
 #
 # This file is part of the Virtual Networks over LinuX (VNX) Project distribution. 
 # (www: http://www.dit.upm.es/vnx - e-mail: vnx@dit.upm.es) 
